@@ -5,7 +5,10 @@ Created on Mon Aug  8 15:21:16 2022
 
 @author: sarah
 """
-import os.path as path
+
+import argparse
+from sys import stdout
+import os
 from time import sleep
 import requests
 from lxml import html
@@ -13,8 +16,8 @@ import csv
 import locale
 locale.setlocale( locale.LC_ALL, 'en_US.UTF-8' ) 
 
-url = "https://archiveofourown.org/tags/Adventures%20of%20Huckleberry%20Finn%20-%20Mark%20Twain/works"
-outdir = "/home/sarah/Data/Programming/ao3scraper"
+#url = "https://archiveofourown.org/tags/Adventures%20of%20Huckleberry%20Finn%20-%20Mark%20Twain/works"
+#outdir = "/home/sarah/Data/Programming/ao3scraper"
 
 def create_tables(outdir, table_main, tables):
     """ Create empty csv files """
@@ -121,22 +124,25 @@ def get_next_page(root):
     else:
         return (False, None)
         
-def get_all_works(url, outdir):
+def get_all_works(url, outdir, pages):
     """ Extract all results from a search, and save the results to several
     csv files """
     not_finished = True
     n = 1
+    stdout.write("Scraping search results")
+    stdout.flush()
     
     # Create necessary tables
-    table_main = path.join(outdir, "main.csv")
+    table_main = os.path.join(outdir, "main.csv")
     tables = ["authors", "fandoms", "warnings", "parings", "characters", "tags"]
-    tables = {table: path.join(outdir, table + ".csv") for table in tables}
+    tables = {table: os.path.join(outdir, table + ".csv") for table in tables}
     create_tables(outdir, table_main, tables)
     
     # Extract results until there's no next page
     while not_finished:
+        stdout.write(".")
+        stdout.flush()
         response = requests.get(url)
-        print("page " + str(n))
         
         # Bad response -> we fucked up
         if response.status_code != 200:
@@ -155,7 +161,25 @@ def get_all_works(url, outdir):
             table = process_tag_info(results, key)
             append_to_table(filepath, table)
             
-        n += 1
         not_finished, url = get_next_page(root)
+        n += 1
+        if n > pages:
+            break
         
         sleep(5)
+    
+    stdout.write("\n")
+    stdout.flush()
+        
+def main():
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description = "A03 Parser")
+    parser.add_argument("url")
+    parser.add_argument("-o", "--output", help = "Output directory", required = False, default = os.getcwd())
+    parser.add_argument("-p", "--pages", help = "Number of pages", type = int, required = False, default = 5001)
+    args = parser.parse_args()
+
+    get_all_works(args.url, args.output, args.pages)
+    
+if __name__ == '__main__':
+   main()
