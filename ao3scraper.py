@@ -14,10 +14,6 @@ import requests
 from lxml import html
 import csv
 import locale
-locale.setlocale( locale.LC_ALL, 'en_US.UTF-8' ) 
-
-#url = "https://archiveofourown.org/tags/Adventures%20of%20Huckleberry%20Finn%20-%20Mark%20Twain/works"
-#outdir = "/home/sarah/Data/Programming/ao3scraper"
 
 def create_tables(outdir, table_main, tables):
     """ Create empty csv files """
@@ -75,6 +71,7 @@ def int_or_none(string):
         return None
 
 def parse_word_count(string):
+    """ Convert word count to int, return 0 if unable to parse"""
     try:
         return locale.atoi(string)
     except ValueError:
@@ -178,6 +175,9 @@ def get_all_works(url, outdir, pages):
     stdout.flush()
         
 def main():
+    # Set locale (needed to parse word count)
+    locale.setlocale( locale.LC_ALL, 'en_US.UTF-8' ) 
+    
     # Parse command line arguments
     parser = argparse.ArgumentParser(description = "A03 Parser")
     parser.add_argument("url")
