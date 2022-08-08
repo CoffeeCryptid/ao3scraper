@@ -74,6 +74,12 @@ def int_or_none(string):
     except ValueError:
         return None
 
+def parse_word_count(string):
+    try:
+        return locale.atoi(string)
+    except ValueError:
+        return 0
+
 def split_chapter(chapters):
     """ Splits chapter numbers in the form '7/?' or '1/1' into a tuple"""
     chapters = chapters.split("/")
@@ -86,7 +92,7 @@ def process_main_info(input):
     stats = ["comments", "kudos", "bookmarks", "hits"]
     row_main = [input.get(attrib) for attrib in attribs]
     # word count
-    row_main.append(locale.atoi(input.get("words")))
+    row_main.append(parse_word_count(input.get("words")))
     # chapters
     for chap in input.get("chapters").split("/"):
         row_main.append(int_or_none(chap))
