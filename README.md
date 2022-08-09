@@ -9,8 +9,14 @@ python3 ao3scraper.py <url> -o <output directory> -p <number of pages>
 ```
 
 - url: URL of AO3 search results
-- -o / output directory: optional argument; path of output directory
-- -p / number of pages: Maximum number of pages to scrape
+- -o / output directory: path of output directory (optional argument)
+- -p / number of pages: maximum number of pages to scrape (optional argument)
+
+## Dependencies:
+
+- requests
+- lxml
+- csv
 
 ## Output:
 
