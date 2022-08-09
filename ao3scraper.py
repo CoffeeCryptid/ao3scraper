@@ -137,7 +137,7 @@ def get_all_works(url, outdir, pages):
     
     # Create necessary tables
     table_main = os.path.join(outdir, "main.csv")
-    tables = ["authors", "fandoms", "warnings", "parings", "characters", "tags"]
+    tables = ["authors", "fandoms", "warnings", "pairings", "characters", "tags"]
     tables = {table: os.path.join(outdir, table + ".csv") for table in tables}
     create_tables(outdir, table_main, tables)
     
