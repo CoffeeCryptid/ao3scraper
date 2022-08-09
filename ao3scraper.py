@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Mon Aug  8 15:21:16 2022
+Created on Tue Aug  9 01:04:16 2022
 
 @author: sarah
 """
@@ -15,100 +15,91 @@ from lxml import html
 import csv
 import locale
 
-def create_tables(outdir, table_main, tables):
-    """ Create empty csv files """
-    #main table
-    header = ["id", "title", "date", "rating", "category", "warnings", 
-              "iswip", "description", "language", "words", "chap_cur", 
-              "chap_total", "comments", "kudos", "bookmarks", "hits"]
-    with open(table_main, "w") as file:
-        writer = csv.writer(file, delimiter = ";")
-        writer.writerow(header)
+class Work():
+    def __init__(self, input):
+        self.extract_info(input)
+        self.process_chapters()
+        self.process_word_count()
+        
+    def extract_info(self, input):
+        # id, title, authors, date
+        self.id = int(input.attrib["id"][5:])
+        self.title = input.cssselect("h4.heading > a:first-child")[0].text
+        self.authors = tuple(x.text for x in input.cssselect("h4.heading > a[rel='author']"))
+        self.date = input.cssselect("p.datetime")[0].text
+        # Required tags, that square in the upper left corner
+        req_tags = input.cssselect("ul.required-tags > li > a > span")
+        for tag in req_tags:
+            tagclass = tag.attrib["class"].split(" ")[1]
+            self.__dict__[tagclass] = tag.text_content()
+        # tags
+        self.fandoms = tuple(x.text for x in input.cssselect(".fandoms > a.tag"))
+        self.warning_tags = tuple(x.text for x in input.cssselect("li.warnings a.tag"))
+        self.pairings = tuple(x.text for x in input.cssselect("li.relationships > a"))
+        self.characters = tuple(x.text for x in input.cssselect("li.characters > a"))
+        self.freeform = tuple(x.text for x in input.cssselect("li.freeforms > a"))
+        # description
+        description = input.cssselect(".summary > p")
+        self.description = description[0].text if len(description) > 0 else None
+        # stats
+        stats = input.cssselect("dl.stats > dd")
+        for tag in stats:
+            tagclass = tag.attrib["class"]
+            self.__dict__[tagclass] = tag.text_content()
     
+    def process_chapters(self):
+        """ Split number of chapters (1/? -> [1, None]) """
+        result = []
+        for chap in self.chapters.split("/"):
+            try:
+                chap = int(chap)
+            except ValueError:
+                chap = None 
+            result.append(chap)
+        
+        self.chap_cur, self.chap_total = result
+    
+    def process_word_count(self):
+        """ Convert string variable word count to integer """
+        try:
+            self.words = locale.atoi(self.words)
+        except ValueError:
+            self.words = 0
+            
+    def fetch(self, key):
+        """Extract information like authors, tags, etc."""
+        if key == "main":
+            attribs = ["id", "title", "date", "rating", "category", "warnings", 
+                       "iswip", "description", "language", "words", "chap_cur", "chap_total"]
+            stats = ["comments", "kudos", "bookmarks", "hits"]
+            row = [self.__dict__[attrib] for attrib in attribs]
+            # stats: comments, kudos, bookmarks, hits
+            for stat in stats:
+                row.append(int(self.__dict__.get(stat, "0")))
+            return [row]
+        
+        else: 
+            id = self.id
+            content = self.__dict__[key]
+            table = []
+            for item in content:
+                table.append([id, item])
+            return table
+    
+def create_tables(outdir, tables):
+    """ Create empty csv files """
     for name, filepath in tables.items():
         with open(filepath, "w") as file:
             writer = csv.writer(file, delimiter = ";")
-            row = ("id", name)
-            writer.writerow(row)
-            
-def extract_info(work):
-    """ Extract all necessary info from an AO3 search result
-    and return results as a dictionary"""
-    results = dict()
-    
-    # id, title, authors, date
-    results["id"] = int(work.attrib["id"][5:])
-    results["title"] = work.cssselect("h4.heading > a:first-child")[0].text
-    results["authors"] = tuple(x.text for x in work.cssselect("h4.heading > a[rel='author']"))
-    results["date"] = work.cssselect("p.datetime")[0].text
-    # Required tags, that square in the upper left corner
-    req_tags = work.cssselect("ul.required-tags > li > a > span")
-    for tag in req_tags:
-        tagclass = tag.attrib["class"].split(" ")[1]
-        results[tagclass] = tag.text_content()
-    # tags
-    results["fandoms"] = tuple(x.text for x in work.cssselect(".fandoms > a.tag"))
-    results["warning tags"] = tuple(x.text for x in work.cssselect("li.warnings a.tag"))
-    results["pairings"] = tuple(x.text for x in work.cssselect("li.relationships > a"))
-    results["characters"] = tuple(x.text for x in work.cssselect("li.characters > a"))
-    results["freeform"] = tuple(x.text for x in work.cssselect("li.freeforms > a"))
-    # description
-    description = work.cssselect(".summary > p")
-    results["description"] = description[0].text if len(description) > 0 else None
-    # stats
-    stats = work.cssselect("dl.stats > dd")
-    for tag in stats:
-        tagclass = tag.attrib["class"]
-        results[tagclass] = tag.text_content()
-    
-    return(results)
-
-def int_or_none(string):
-    """Convert a string to int, return None if conversion fails"""
-    try:
-        return int(string)
-    except ValueError:
-        return None
-
-def parse_word_count(string):
-    """ Convert word count to int, return 0 if unable to parse"""
-    try:
-        return locale.atoi(string)
-    except ValueError:
-        return 0
-
-def split_chapter(chapters):
-    """ Splits chapter numbers in the form '7/?' or '1/1' into a tuple"""
-    chapters = chapters.split("/")
-    return tuple(int_or_none(chapt) for chapt in chapters)
-
-def process_main_info(input):
-    """Given a single result, extract all necessary information for the main
-    table (id, title, etc.) and return a row (list)"""
-    attribs = ["id", "title", "date", "rating", "category", "warnings", "iswip", "description", "language"]
-    stats = ["comments", "kudos", "bookmarks", "hits"]
-    row_main = [input.get(attrib) for attrib in attribs]
-    # word count
-    row_main.append(parse_word_count(input.get("words")))
-    # chapters
-    for chap in input.get("chapters").split("/"):
-        row_main.append(int_or_none(chap))
-    # stats: comments, kudos, bookmarks, hits
-    for stat in stats:
-        row_main.append(int(input.get(stat, "0")))
-        
-    return row_main
-
-def process_tag_info(works, key):
-    """Given a list of results, extract information like authors, tags, etc.
-    and output a long-format table"""
-    table = []
-    for work in works:
-        id = work.get("id") 
-        content = work.get(key, tuple())
-        for item in content:
-            table.append([id, item])
-    return table
+            if name == "main":
+                #main table
+                header = ("id", "title", "date", "rating", "category", "warnings", 
+                          "iswip", "description", "language", "words", "chap_cur", 
+                          "chap_total", "comments", "kudos", "bookmarks", "hits")
+                writer.writerow(header)
+            else:
+                header = ("id", name)
+                writer.writerow(header)
 
 def append_to_table(filepath, rows):
     """Append a list of rows to a csv file"""
@@ -126,7 +117,7 @@ def get_next_page(root):
         return (True, "https://archiveofourown.org/" + next[0].attrib["href"])
     else:
         return (False, None)
-        
+
 def get_all_works(url, outdir, pages):
     """ Extract all results from a search, and save the results to several
     csv files """
@@ -136,10 +127,9 @@ def get_all_works(url, outdir, pages):
     stdout.flush()
     
     # Create necessary tables
-    table_main = os.path.join(outdir, "main.csv")
-    tables = ["authors", "fandoms", "warnings", "pairings", "characters", "tags"]
-    tables = {table: os.path.join(outdir, table + ".csv") for table in tables}
-    create_tables(outdir, table_main, tables)
+    table_names = ["main", "authors", "fandoms", "warning_tags", "pairings", "characters", "freeform"]
+    table_paths = {table: os.path.join(outdir, table + ".csv") for table in table_names}
+    create_tables(outdir, table_paths)
     
     # Extract results until there's no next page
     while not_finished:
@@ -155,14 +145,13 @@ def get_all_works(url, outdir, pages):
         # Get page and extract works
         page = response.text
         root = html.document_fromstring(page)
-        works = root.cssselect("li.work")
+        works = [Work(node) for node in root.cssselect("li.work")]
+        tables = {table: [] for table in table_names}
         
-        results = [extract_info(work) for work in works]
-        table = [process_main_info(result) for result in results]
-        append_to_table(table_main, table)
-        for key, filepath in tables.items():
-            table = process_tag_info(results, key)
-            append_to_table(filepath, table)
+        for key in table_names:
+            for work in works:
+                tables[key] += work.fetch(key)
+            append_to_table(table_paths[key], tables[key])
             
         not_finished, url = get_next_page(root)
         n += 1
@@ -173,7 +162,7 @@ def get_all_works(url, outdir, pages):
     
     stdout.write("\n")
     stdout.flush()
-        
+    
 def main():
     # Set locale (needed to parse word count)
     locale.setlocale( locale.LC_ALL, 'en_US.UTF-8' ) 
