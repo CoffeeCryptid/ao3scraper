@@ -1,6 +1,6 @@
 # AO3 Scraper
 
-A Python script that scrapes search results from AO3.
+A Python script to scrape search results from AO3.
 
 ## How to use:
 
